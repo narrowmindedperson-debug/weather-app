@@ -21,48 +21,47 @@
 
 # So this code acts as a translator.
 
-import requests
-from dotenv import load_dotenv
 import os
+import requests
 from dataclasses import dataclass
 
-
-load_dotenv()
-api_key = os.getenv('API_key')
-
 @dataclass
-class weatherdata:
-    main: str 
+class WeatherData:
+    main: str
     description: str
     icon: str
     temperature: int
 
-def get_lan_lon(city_name,state_code,country_code,API_key):
-    resp = requests.get(f"http://api.openweathermap.org/geo/1.0/direct?q={city_name},{state_code},{country_code}&appid={API_key}") .json()
-    # 👉 resp is a Python variable that stores the JSON response returned by the OpenWeatherMap API.
+def get_lat_lon(city_name, state_code, country_code, api_key):
+    url = f"http://api.openweathermap.org/geo/1.0/direct?q={city_name},{state_code},{country_code}&appid={api_key}"
+    resp = requests.get(url).json()
+
+    if not resp:
+        return None, None
+
     data = resp[0]
-    # 👉 data becomes the first dictionary inside the list resp
-    lat,lon = data.get('lat'), data.get('lon')
-    return lat,lon
- 
+    return data.get("lat"), data.get("lon")
 
-def get_current_weather(lat,lon,API_key):
+def get_current_weather(lat, lon, api_key):
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units=metric"
+    resp = requests.get(url).json()
 
-    resp=requests.get(f'https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_key}&units=metric').json()
-    data = weatherdata(
-        main=resp.get('weather')[0].get('main'),
-        description=resp.get('weather')[0].get('description'),
-        icon=resp.get('weather')[0].get('icon'),
-        temperature=int(resp.get('main').get('temp'))
+    return WeatherData(
+        main=resp.get("weather", [{}])[0].get("main", ""),
+        description=resp.get("weather", [{}])[0].get("description", ""),
+        icon=resp.get("weather", [{}])[0].get("icon", ""),
+        temperature=int(resp.get("main", {}).get("temp", 0))
     )
-    return data 
 
-def main(city_name,state_name,country_name):
-    lat,lon=get_lan_lon(city_name,state_name,country_name,api_key)
-    weather_data=(get_current_weather(lat,lon,api_key))
-    return weather_data
+def main(city_name, state_name, country_name):
+    api_key = os.getenv("API_KEY")   # ✅ must match Render exactly
 
+    if not api_key:
+        raise RuntimeError("API_KEY environment variable not set")
 
-if __name__ == "__main__":
-    lat,lon=get_lan_lon('toronto','ON','canada',api_key)
-    print (get_current_weather(lat,lon,api_key))
+    lat, lon = get_lat_lon(city_name, state_name, country_name, api_key)
+
+    if lat is None or lon is None:
+        return None
+
+    return get_current_weather(lat, lon, api_key)
